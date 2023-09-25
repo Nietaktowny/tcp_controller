@@ -1,0 +1,5 @@
+dependencies:
+  idf: '>=5.0' 
+description: Creates and manages simple TCP server using sockets.. 
+url: 
+version: 1.0.0

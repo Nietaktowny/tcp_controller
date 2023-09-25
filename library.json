@@ -1,0 +1,11 @@
+{
+	"name": "tcp_controller",
+	"version": "1.0.2",
+	"keywords": "keyword",
+	"description": "Creates and manages simple TCP server using sockets.",
+	"dependencies": {
+        "nietaktowny/err_controller": "^1.0.2"
+    },
+	"frameworks": ["espidf"],
+	"platforms": ["espressif32"]
+}

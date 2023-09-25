@@ -1,0 +1,1 @@
+idf_component_register(SRCS 'tcp_controller.c' INCLUDE_DIRS 'include')
