@@ -22,6 +22,7 @@ static int tcp_c_prepare_listen_socket(void);
 static int tcp_c_bind_socket(int socket, struct sockaddr_storage *dest_addr);
 static int tcp_c_listen_on_socket(int socket);
 static int tcp_c_accept_socket(int socket);
+static int tcp_c_close_socket(int socket);
 
 static EventGroupHandle_t tcp_event_group;
 
@@ -36,8 +37,10 @@ int tcp_c_send(const char tx_buffer[], int buflen) {
         if (written < 0) {
             err = errno;
             ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
-            ESP_LOGE(TAG, "Error description:\n %s", strerror(err));
-            return errno;
+            TCP_C_LOG_ERR(err)
+            tcp_c_close_socket(connected_socket);
+            xEventGroupSetBits(tcp_event_group, TCP_C_FINISHED_TRANSMISSION); //there was error, finish current transmission
+            return err;
         }
         to_write -= written;
     }
@@ -66,8 +69,9 @@ int tcp_c_receive(char rx_buffer[]) {
     } Catch(err) {
         err = errno;
         ESP_LOGE(TAG, "Error during receiving data, errno: %d", err);
-        ESP_LOGE(TAG, "Error description:\n %s", strerror(err));
-        err = errno;
+        TCP_C_LOG_ERR(err)
+        tcp_c_close_socket(connected_socket);
+        xEventGroupSetBits(tcp_event_group, TCP_C_FINISHED_TRANSMISSION); //there was error, finish current transmission
     }
     xEventGroupSetBits(tcp_event_group, TCP_C_RECEIVED_DATA_BIT);
     return err;
@@ -92,7 +96,7 @@ static int tcp_c_prepare_listen_socket(void) {
 
     } Catch(err) {
         ESP_LOGE(TAG, "Unable to create socket: errno %d", err);
-        ESP_LOGE(TAG, "Error description:\n %s", strerror(err));
+        TCP_C_LOG_ERR(err)
         Throw(err);
     }
 
@@ -107,7 +111,7 @@ static int tcp_c_bind_socket(int socket, struct sockaddr_storage *dest_addr) {
     } Catch(err) {
         err = errno;
         ESP_LOGE(TAG, "Socket unable to bind: errno %d", err);
-        ESP_LOGE(TAG, "Error description:\n %s", strerror(err));
+        TCP_C_LOG_ERR(err)
     }
 
     return err;
@@ -116,12 +120,12 @@ static int tcp_c_bind_socket(int socket, struct sockaddr_storage *dest_addr) {
 static int tcp_c_listen_on_socket(int socket) {
     volatile err_c_t err = ERR_C_OK;
     Try {
-        err = listen(socket, 1);
+        err = listen(socket, TCP_C_BACKLOG_NUM);
         ERR_C_CHECK_AND_THROW_ERR(err);
     } Catch(err) {
         err = errno;
         ESP_LOGE(TAG, "Error occurred during listen: errno %d", err);
-        ESP_LOGE(TAG, "Error description:\n %s", strerror(err));
+        TCP_C_LOG_ERR(err)
     }
 
     return err;
@@ -158,10 +162,17 @@ static int tcp_c_accept_socket(int socket) {
         ESP_LOGD(TAG, "Socket accepted ip address: %s", addr_str);
     } Catch (err) {
         ESP_LOGE(TAG, "Unable to accept connection: errno %d", err);
-        ESP_LOGE(TAG, "Error description:\n %s", strerror(err));
+        TCP_C_LOG_ERR(err)
     }
 
     return sock;
+}
+
+static int tcp_c_close_socket(int socket) {
+    //Close the connection.
+    shutdown(socket, 0);
+    close(socket);
+    return 0;
 }
 
 void tcp_c_server_loop(void)
@@ -169,7 +180,6 @@ void tcp_c_server_loop(void)
     volatile err_c_t err = ERR_C_OK;
     Try {
         while (1) {
-
             ESP_LOGD(TAG, "Socket listening");
             //Accept new connection
             connected_socket = tcp_c_accept_socket(listen_socket);
@@ -178,8 +188,7 @@ void tcp_c_server_loop(void)
             //Wait till transmission is finished.
             xEventGroupWaitBits(tcp_event_group, TCP_C_FINISHED_TRANSMISSION, pdTRUE, pdFALSE, pdMS_TO_TICKS(3500));
             //Close the connection.
-            shutdown(connected_socket, 0);
-            close(connected_socket);
+            tcp_c_close_socket(connected_socket);
         }
     } Catch(err) {
         ESP_LOGE(TAG, "error: %d", err);

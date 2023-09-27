@@ -11,6 +11,9 @@
 #define TCP_C_SEND_BUFLEN                 512
 #define TCP_C_ADDR_FAMILY                 AF_INET
 #define TCP_C_IP_PROTOCOL                 IPPROTO_IP
+#define TCP_C_BACKLOG_NUM                 4
+
+#define TCP_C_LOG_ERR(err) ESP_LOGE(TAG, "file:%s line:%d\n error description:\n%s", __FILE__, __LINE__, strerror(err));
 
 int tcp_c_start_tcp_server(EventGroupHandle_t event_group);
 void tcp_c_server_loop(void);
