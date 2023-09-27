@@ -1,4 +1,5 @@
 #include "tcp_controller.h"
+#include "tcp_c_events.h"
 #include "err_controller.h"
 #include "wifi_controller.h"
 
@@ -33,7 +34,9 @@ int tcp_c_send(const char tx_buffer[], int buflen) {
     while (to_write > 0) {
         int written = send(connected_socket, tx_buffer+(buflen-to_write), to_write, 0);
         if (written < 0) {
+            err = errno;
             ESP_LOGE(TAG, "Error occurred during sending: errno %d", errno);
+            ESP_LOGE(TAG, "Error description:\n %s", strerror(err));
             return errno;
         }
         to_write -= written;
@@ -61,7 +64,9 @@ int tcp_c_receive(char rx_buffer[]) {
         } while (len > 0);
 
     } Catch(err) {
-        ESP_LOGE(TAG, "Error during receiving data, errno: %d", errno);
+        err = errno;
+        ESP_LOGE(TAG, "Error during receiving data, errno: %d", err);
+        ESP_LOGE(TAG, "Error description:\n %s", strerror(err));
         err = errno;
     }
     xEventGroupSetBits(tcp_event_group, TCP_C_RECEIVED_DATA_BIT);
@@ -86,7 +91,8 @@ static int tcp_c_prepare_listen_socket(void) {
         setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     } Catch(err) {
-        ESP_LOGE(TAG, "Unable to create socket: errno %d", err);  
+        ESP_LOGE(TAG, "Unable to create socket: errno %d", err);
+        ESP_LOGE(TAG, "Error description:\n %s", strerror(err));
         Throw(err);
     }
 
@@ -99,7 +105,9 @@ static int tcp_c_bind_socket(int socket, struct sockaddr_storage *dest_addr) {
         err = bind(socket, (struct sockaddr *)dest_addr, sizeof(struct sockaddr_storage));
         ERR_C_CHECK_AND_THROW_ERR(err);
     } Catch(err) {
-        ESP_LOGE(TAG, "Socket unable to bind: errno %d", errno);
+        err = errno;
+        ESP_LOGE(TAG, "Socket unable to bind: errno %d", err);
+        ESP_LOGE(TAG, "Error description:\n %s", strerror(err));
     }
 
     return err;
@@ -111,7 +119,9 @@ static int tcp_c_listen_on_socket(int socket) {
         err = listen(socket, 1);
         ERR_C_CHECK_AND_THROW_ERR(err);
     } Catch(err) {
-        ESP_LOGE(TAG, "Error occurred during listen: errno %d", errno);
+        err = errno;
+        ESP_LOGE(TAG, "Error occurred during listen: errno %d", err);
+        ESP_LOGE(TAG, "Error description:\n %s", strerror(err));
     }
 
     return err;
@@ -148,6 +158,7 @@ static int tcp_c_accept_socket(int socket) {
         ESP_LOGD(TAG, "Socket accepted ip address: %s", addr_str);
     } Catch (err) {
         ESP_LOGE(TAG, "Unable to accept connection: errno %d", err);
+        ESP_LOGE(TAG, "Error description:\n %s", strerror(err));
     }
 
     return sock;
