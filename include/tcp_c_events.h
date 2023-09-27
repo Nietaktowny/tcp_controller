@@ -1,0 +1,7 @@
+#pragma once
+
+#define TCP_C_RECEIVED_DATA_BIT           0x00000001
+#define TCP_C_SENDED_DATA_BIT             0x00000002
+#define TCP_C_ACCEPTED_SOCKET_BIT         0x00000004
+#define TCP_C_FINISHED_TRANSMISSION       0x00000008
+#define TCP_C_DATA_READY_TO_SEND          0x00000010
